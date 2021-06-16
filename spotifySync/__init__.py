@@ -8,6 +8,7 @@
 @Contact :  yaronhuang@foxmail.com
 @Desc    :  
 '''
+import os
 import sys
 import json
 import aigpy
@@ -19,6 +20,25 @@ from aigpy.progressHelper import ProgressTool
 from aigpy.modelHelper import ModelBase
 from aigpy.musicHelp import User, Album, Artist, Track, Playlist, Show
 from spotipy import SpotifyOAuth, SpotifyStateError, Spotify
+
+LOG = """
+   ____          __  _ ___     ____             
+  / __/__  ___  / /_(_) _/_ __/ __/_ _____  ____
+ _\ \/ _ \/ _ \/ __/ / _/ // /\ \/ // / _ \/ __/
+/___/ .__/\___/\__/_/_/ \_, /___/\_, /_//_/\__/ 
+   /_/                 /___/    /___/          
+"""
+
+def getSettingsPath():
+    if "XDG_CONFIG_HOME" in os.environ:
+        return os.environ['XDG_CONFIG_HOME']
+    elif "HOME" in os.environ:
+        return os.environ['HOME']
+    else:
+        return os.path._getfullpathname("./")
+
+CACHEFILE = getSettingsPath() + "/.SpotifySync-Auth"
+VERSION = "2021.6.16"
 
 
 def enter(string):
@@ -48,14 +68,14 @@ def printfMenu(user: str = ""):
     tb.align = 'l'
     tb.set_style(prettytable.PLAIN_COLUMNS)
     tb.add_row([aigpy.cmd.green("Login    " + " '0':"), "login by your spotify account"])
-    tb.add_row([aigpy.cmd.green("Authorize" + " '1':"), "Authorize to motify playlist"])
+    tb.add_row([aigpy.cmd.green("Authorize" + " '1':"), "Authorize to modify playlist"])
     tb.add_row([aigpy.cmd.green("Save     " + " '2':"), "Save data to local"])
     tb.add_row([aigpy.cmd.green("Upload   " + " '3':"), "Upload local data to your account"])
     print(tb)
     print("====================================================")
 
 
-class LoaclData(ModelBase):
+class LocalData(ModelBase):
     albums = Album()
     artists = Artist()
     tracks = Track()
@@ -75,7 +95,7 @@ class LoaclData(ModelBase):
             content = aigpy.file.getContent(path)
             if content != '':
                 ret = json.loads(content)
-                array = aigpy.model.dictToModel(ret, LoaclData())
+                array = aigpy.model.dictToModel(ret, LocalData())
                 self.albums = array.albums
                 self.tracks = array.tracks
                 self.playlists = array.playlists
@@ -166,13 +186,14 @@ class MySpotify(object):
                                 client_id="ddcfe87f7ded4cec843769b882905d89",
                                 client_secret="9896b8f8de5e4a26a599def1986749d4",
                                 redirect_uri='https://yaronzz.top/',
-                                open_browser=True)
+                                open_browser=True,
+                                cache_path=CACHEFILE)
             self.spotify = Spotify(auth_manager=auth)
             self.user = self.__user__()
-            self.islogin = True
+            self.isLogin = True
         except Exception as e:
             print(aigpy.cmd.red("Err: ") + str(e))
-            self.islogin = False
+            self.isLogin = False
 
             
 
@@ -345,8 +366,7 @@ class MySpotify(object):
                 self.spotify.user_playlist_add_tracks(self.user.id, plId, ids)
 
 
-
-def saveLoacl(account: MySpotify, data: LoaclData):
+def saveLocal(account: MySpotify, data: LocalData):
     if account is None:
         aigpy.cmd.colorPrint("Err: No account authorize\n", aigpy.cmd.TextColor.Red, None)
         return
@@ -376,7 +396,7 @@ def saveLoacl(account: MySpotify, data: LoaclData):
     data.save()
 
 
-def UploadAccount(account: MySpotify, data: LoaclData):
+def UploadAccount(account: MySpotify, data: LocalData):
     if account is None:
         aigpy.cmd.colorPrint("Err: No account authorize\n", aigpy.cmd.TextColor.Red, None)
         return
@@ -400,23 +420,32 @@ def UploadAccount(account: MySpotify, data: LoaclData):
     progress.addCurCount(1)
 
 
-datas = LoaclData()
-datas.read()
-account = None
-newAccount = MySpotify('test')
-if newAccount.islogin:
-    account = newAccount
+def main():
+    print(LOG)
+    print("                " + VERSION)
 
-while True:
-    printfMenu(None if account is None else account.user.name)
-    choice = enter("Choice:")
-    if choice == '0':
-        webbrowser.open("https://accounts.spotify.com/")
-    elif choice == '1':
-        newAccount = MySpotify('test')
-        if newAccount.islogin:
-            account = newAccount
-    elif choice == '2':
-        saveLoacl(account, datas)
-    elif choice == '3':
-        UploadAccount(account, datas)
+    data = LocalData()
+    data.read()
+
+    account = None
+    newAccount = MySpotify('test')
+    if newAccount.isLogin:
+        account = newAccount
+
+    while True:
+        printfMenu(None if account is None else account.user.name)
+        choice = enter("Choice:")
+        if choice == '0':
+            webbrowser.open("https://accounts.spotify.com/")
+        elif choice == '1':
+            aigpy.path.remove(CACHEFILE)
+            newAccount = MySpotify('test')
+            if newAccount.isLogin:
+                account = newAccount
+        elif choice == '2':
+            saveLocal(account, data)
+        elif choice == '3':
+            UploadAccount(account, data)
+
+if __name__ == "__main__":
+    main()

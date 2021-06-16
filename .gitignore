@@ -1,0 +1,9 @@
+/build
+/dist
+/__init__.spec
+/spotifySync.egg-info
+/test
+/.cache-test
+/.localData.json
+/.SpotifySync-Auth
+/spotifySync/__pycache__
